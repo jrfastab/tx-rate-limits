@@ -7001,6 +7001,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
 	.ndo_fdb_add		= ixgbe_ndo_fdb_add,
 	.ndo_fdb_del		= ixgbe_ndo_fdb_del,
 	.ndo_fdb_dump		= ixgbe_ndo_fdb_dump,
+	.ndo_set_ratelimit	= ixgbe_set_queue_rate_limit,
 };
 
 /**

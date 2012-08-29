@@ -571,6 +571,7 @@ struct netdev_queue {
 #ifdef CONFIG_BQL
 	struct dql		dql;
 #endif
+	unsigned long		rate_limit;
 } ____cacheline_aligned_in_smp;
 
 static inline int netdev_queue_numa_node_read(const struct netdev_queue *q)
@@ -1026,6 +1027,9 @@ struct net_device_ops {
 						struct netlink_callback *cb,
 						struct net_device *dev,
 						int idx);
+	int			(*ndo_set_ratelimit)(struct net_device *dev,
+						     int queue_index,
+						     u32 maxrate);
 };
 
 /*

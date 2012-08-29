@@ -823,12 +823,13 @@ static int ixgbe_link_mbps(int internal_link_speed)
 		return 0;
 	}
 }
-
-static void ixgbe_set_vf_rate_limit(struct ixgbe_hw *hw, int vf, int tx_rate,
-				    int link_speed)
+static void ixgbe_set_rate_limit(struct ixgbe_adapter *adapter,
+				 int index, int tx_rate, int link_speed)
 {
+	struct ixgbe_hw *hw = &adapter->hw;
 	int rf_dec, rf_int;
 	u32 bcnrc_val;
+	u8 reg_idx;
 
 	if (tx_rate != 0) {
 		/* Calculate the rate factor values to set */
@@ -844,7 +845,8 @@ static void ixgbe_set_vf_rate_limit(struct ixgbe_hw *hw, int vf, int tx_rate,
 		bcnrc_val = 0;
 	}
 
-	IXGBE_WRITE_REG(hw, IXGBE_RTTDQSEL, 2*vf); /* vf Y uses queue 2*Y */
+	reg_idx = adapter->tx_ring[index]->reg_idx;
+	IXGBE_WRITE_REG(hw, IXGBE_RTTDQSEL, reg_idx);
 	/*
 	 * Set global transmit compensation time to the MMW_SIZE in RTTBCNRM
 	 * register. Typically MMW_SIZE=0x014 if 9728-byte jumbo is supported
@@ -862,6 +864,16 @@ static void ixgbe_set_vf_rate_limit(struct ixgbe_hw *hw, int vf, int tx_rate,
 	}
 
 	IXGBE_WRITE_REG(hw, IXGBE_RTTBCNRC, bcnrc_val);
+}
+
+int ixgbe_set_queue_rate_limit(struct net_device *dev, int index, u32 rate)
+{
+	struct ixgbe_adapter *adapter = netdev_priv(dev);
+	int speed = ixgbe_link_mbps(adapter->link_speed);
+
+	ixgbe_set_rate_limit(adapter, index, rate, speed);
+
+	return 0;
 }
 
 void ixgbe_check_vf_rate_limit(struct ixgbe_adapter *adapter)
@@ -886,16 +898,16 @@ void ixgbe_check_vf_rate_limit(struct ixgbe_adapter *adapter)
 		if (reset_rate)
 			adapter->vfinfo[i].tx_rate = 0;
 
-		ixgbe_set_vf_rate_limit(&adapter->hw, i,
-					adapter->vfinfo[i].tx_rate,
-					actual_link_speed);
+		/* vf Y uses queue 2*Y */
+		ixgbe_set_rate_limit(adapter, i * 2,
+				     adapter->vfinfo[i].tx_rate,
+				     actual_link_speed);
 	}
 }
 
 int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate)
 {
 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-	struct ixgbe_hw *hw = &adapter->hw;
 	int actual_link_speed;
 
 	actual_link_speed = ixgbe_link_mbps(adapter->link_speed);
@@ -907,7 +919,8 @@ int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate)
 
 	adapter->vf_rate_link_speed = actual_link_speed;
 	adapter->vfinfo[vf].tx_rate = (u16)tx_rate;
-	ixgbe_set_vf_rate_limit(hw, vf, tx_rate, actual_link_speed);
+	/* vf Y uses queue 2*Y */
+	ixgbe_set_rate_limit(adapter, vf * 2, tx_rate, actual_link_speed);
 
 	return 0;
 }
